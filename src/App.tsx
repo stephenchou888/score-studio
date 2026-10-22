@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { TuneObject } from 'abcjs'
 import { RotateCcw } from 'lucide-react'
 
@@ -8,10 +8,31 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { SAMPLE_ABC } from '@/lib/abc-samples'
+import {
+  DURATION_SNIPPETS,
+  MAJOR_KEYS,
+  MINOR_KEYS,
+  RHYTHM_SNIPPETS,
+  insertAtPosition,
+  replaceOrInsertKeyLine,
+} from '@/lib/abc-edit'
 
 export default function App() {
   const [abc, setAbc] = useState(SAMPLE_ABC)
   const [visualObj, setVisualObj] = useState<TuneObject>()
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const insertSnippet = (snippet: string) => {
+    const el = textareaRef.current
+    const start = el?.selectionStart ?? abc.length
+    const end = el?.selectionEnd ?? abc.length
+    const { text, cursor } = insertAtPosition(abc, start, end, snippet)
+    setAbc(text)
+    requestAnimationFrame(() => {
+      el?.focus()
+      el?.setSelectionRange(cursor, cursor)
+    })
+  }
 
   return (
     <div className="min-h-screen bg-muted/40 p-4 md:p-8">
@@ -26,7 +47,41 @@ export default function App() {
             <CardDescription>Edit the tune below.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label="Key"
+                value=""
+                onChange={(e) => e.target.value && setAbc(replaceOrInsertKeyLine(abc, e.target.value))}
+                className="h-8 rounded-md border bg-background px-2 text-sm"
+              >
+                <option value="">Key…</option>
+                <optgroup label="Major">
+                  {MAJOR_KEYS.map((k) => (
+                    <option key={k} value={k}>{k} Major</option>
+                  ))}
+                </optgroup>
+                <optgroup label="Minor">
+                  {MINOR_KEYS.map((k) => (
+                    <option key={k} value={k}>{k.slice(0, -1)} Minor</option>
+                  ))}
+                </optgroup>
+              </select>
+              {[...DURATION_SNIPPETS, ...RHYTHM_SNIPPETS].map((s) => (
+                <Button
+                  key={s.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  title={`Insert ${s.value}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => insertSnippet(s.value)}
+                >
+                  {s.label}
+                </Button>
+              ))}
+            </div>
             <Textarea
+              ref={textareaRef}
               value={abc}
               onChange={(e) => setAbc(e.target.value)}
               spellCheck={false}
